@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class OutOfStock(Exception):
@@ -31,15 +31,7 @@ class ValueObject(BaseModel):
             return False
         return self.__dict__ == other.__dict__
 
-    class Config:
-        """Freeze the instance.
-
-        For value objects, the hash should be based on all the value attributes,
-        and we should ensure that the objects are immutable.
-        We get this for free by specifying.
-        """
-
-        frozen = True
+    model_config = ConfigDict(frozen=True)
 
 
 class OrderLine(ValueObject):
