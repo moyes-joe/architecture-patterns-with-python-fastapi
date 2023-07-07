@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from dataclasses import dataclass
 
 
-class Entity(BaseModel):
+@dataclass(kw_only=True)
+class Entity:
     """An entity is any domain object that has an identity.
 
     We usually make them mutable.
@@ -22,5 +23,3 @@ class Entity(BaseModel):
 
     def __hash__(self):
         return hash(self.reference)
-
-    model_config = ConfigDict(from_attributes=True)

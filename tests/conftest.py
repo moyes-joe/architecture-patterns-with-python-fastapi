@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import Engine, StaticPool, create_engine
 from sqlalchemy.orm import Session
 
-from src.orm_classical_mapping import mapper_registry
+from src.orm import mapper_registry
 
 
 @pytest.fixture

@@ -50,9 +50,12 @@ def insert_allocation(session: Session, orderline_id: int, batch_id: int) -> Non
 
 def test_repository_can_save_a_batch(session: Session) -> None:
     batch = model.Batch(
-        reference="batch1", sku="RUSTY-SOAPDISH", purchased_quantity=100, eta=None
+        reference="batch1",
+        sku="RUSTY-SOAPDISH",
+        purchased_quantity=100,
+        eta=None,
+        allocations=set(),
     )
-
     repo = repository.SqlAlchemyRepository(session=session)
     repo.add(batch)
     session.commit()

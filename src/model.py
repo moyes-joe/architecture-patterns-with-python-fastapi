@@ -1,8 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import date
-
-from pydantic import Field
 
 from .entity import Entity
 from .value_object import ValueObject
@@ -21,18 +20,20 @@ def allocate(line: OrderLine, batches: list[Batch]) -> str:
         raise OutOfStock(f"Out of stock for sku {line.sku}")
 
 
+@dataclass(unsafe_hash=True, kw_only=True)
 class OrderLine(ValueObject):
     orderid: str
     sku: str
     qty: int
 
 
+@dataclass(kw_only=True)
 class Batch(Entity):
     reference: str
     sku: str
     eta: date | None
     purchased_quantity: int
-    allocations: set[OrderLine] = Field(default_factory=set)
+    allocations: set[OrderLine] = field(default_factory=set)
 
     def __eq__(self, other):
         if not isinstance(other, Batch):

@@ -1,40 +1,48 @@
 from __future__ import annotations
 
 from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import registry, relationship
+
+from src import model
+
+mapper_registry = registry()
 
 
-class Base(DeclarativeBase):
-    pass
-
-
-allocations_table = Table(
-    "allocations",
-    Base.metadata,
-    Column("orderline_id", ForeignKey("order_lines.id"), primary_key=True),
-    Column("batch_id", ForeignKey("batches.id"), primary_key=True),
+order_lines = Table(
+    "order_lines",
+    mapper_registry.metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("sku", String(255)),
+    Column("qty", Integer, nullable=False),
+    Column("orderid", String(255)),
 )
 
+batches = Table(
+    "batches",
+    mapper_registry.metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("reference", String(255)),
+    Column("sku", String(255)),
+    Column("purchased_quantity", Integer, nullable=False),
+    Column("eta", Date, nullable=True),
+)
 
-class Batch(Base):
-    __tablename__ = "batches"
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    reference: Mapped[str] = mapped_column(String(255))
-    sku: Mapped[str] = mapped_column(String(255))
-    eta: Mapped[Date | None] = mapped_column(Date, nullable=True)
-    purchased_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    allocations: Mapped[set[OrderLine]] = relationship(
-        secondary=allocations_table, back_populates="batches"
-    )
+allocations = Table(
+    "allocations",
+    mapper_registry.metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("orderline_id", ForeignKey("order_lines.id")),
+    Column("batch_id", ForeignKey("batches.id")),
+)
 
+order_lines_mapper = mapper_registry.map_imperatively(model.OrderLine, order_lines)
 
-class OrderLine(Base):
-    __tablename__ = "order_lines"
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    orderid: Mapped[str] = mapped_column(String(255))
-    sku: Mapped[str] = mapped_column(String(255))
-    qty: Mapped[int] = mapped_column(Integer, nullable=False)
-
-    batches: Mapped[list[Batch]] = relationship(
-        secondary=allocations_table, back_populates="allocations"
-    )
+mapper_registry.map_imperatively(
+    model.Batch,
+    batches,
+    properties={
+        "allocations": relationship(
+            order_lines_mapper, secondary=allocations, collection_class=set
+        )
+    },
+)

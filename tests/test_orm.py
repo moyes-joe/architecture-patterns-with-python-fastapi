@@ -2,14 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src import model
-
-# pytest skip this module, because the object mapper is not being used
-pytestmark = pytest.mark.skip
 
 
 def test_orderline_mapper_can_load_lines(session: Session) -> None:
@@ -52,14 +48,14 @@ def test_orderline_mapper_can_save_lines(session: Session) -> None:
 def test_retrieving_batches(session: Session):
     session.execute(
         text(
-            "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
+            "INSERT INTO batches (reference, sku, purchased_quantity, eta)"
             " VALUES (:ref1, :sku1, :qty1, :eta1)"
         ),
         {"ref1": "batch1", "sku1": "sku1", "qty1": 100, "eta1": None},
     )
     session.execute(
         text(
-            "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
+            "INSERT INTO batches (reference, sku, purchased_quantity, eta)"
             " VALUES (:ref2, :sku2, :qty2, :eta2)"
         ),
         {
@@ -89,7 +85,7 @@ def test_saving_batches(session: Session) -> None:
     session.add(batch)
     session.commit()
     rows = session.execute(
-        text('SELECT reference, sku, _purchased_quantity, eta FROM "batches"')
+        text('SELECT reference, sku, purchased_quantity, eta FROM "batches"')
     )
     assert list(rows) == [("batch1", "sku1", 100, None)]
 
@@ -121,7 +117,7 @@ def test_retrieving_allocations(session: Session) -> None:
     )
     session.execute(
         text(
-            "INSERT INTO batches (reference, sku, _purchased_quantity, eta)"
+            "INSERT INTO batches (reference, sku, purchased_quantity, eta)"
             " VALUES (:ref, :sku, :qty, :eta)"
         ),
         {"ref": "batch1", "sku": "sku1", "qty": 100, "eta": None},

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from dataclasses import dataclass
 
 
-class ValueObject(BaseModel):
+@dataclass(unsafe_hash=True, kw_only=True)
+class ValueObject:
     """A value object is any domain object that is uniquely identified by the data it holds.
 
     We usually make them immutable.
@@ -15,5 +16,3 @@ class ValueObject(BaseModel):
         if not isinstance(other, self.__class__):
             return False
         return self.__dict__ == other.__dict__
-
-    model_config = ConfigDict(frozen=True, from_attributes=True)
