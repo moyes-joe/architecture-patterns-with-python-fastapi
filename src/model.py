@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import Field
+
+from .entity import Entity
+from .value_object import ValueObject
 
 
 class OutOfStock(Exception):
@@ -18,38 +21,18 @@ def allocate(line: OrderLine, batches: list[Batch]) -> str:
         raise OutOfStock(f"Out of stock for sku {line.sku}")
 
 
-class ValueObject(BaseModel):
-    """A value object is any domain object that is uniquely identified by the data it holds.
-
-    We usually make them immutable.
-
-    Value objects do not have an identity, they are defined by the values they hold.
-    """
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self.__dict__ == other.__dict__
-
-    model_config = ConfigDict(frozen=True)
-
-
 class OrderLine(ValueObject):
     orderid: str
     sku: str
     qty: int
 
 
-class Batch:
-    def __init__(self, ref: str, sku: str, qty: int, eta: date | None):
-        self.reference = ref
-        self.sku = sku
-        self.eta = eta
-        self._purchased_quantity = qty
-        self._allocations: set[OrderLine] = set()
-
-    def __repr__(self):
-        return f"<Batch {self.reference}>"
+class Batch(Entity):
+    reference: str
+    sku: str
+    eta: date | None
+    purchased_quantity: int
+    allocations: set[OrderLine] = Field(default_factory=set)
 
     def __eq__(self, other):
         if not isinstance(other, Batch):
@@ -68,19 +51,19 @@ class Batch:
 
     def allocate(self, line: OrderLine):
         if self.can_allocate(line):
-            self._allocations.add(line)
+            self.allocations.add(line)
 
     def deallocate(self, line: OrderLine):
-        if line in self._allocations:
-            self._allocations.remove(line)
+        if line in self.allocations:
+            self.allocations.remove(line)
 
     @property
     def allocated_quantity(self) -> int:
-        return sum(line.qty for line in self._allocations)
+        return sum(line.qty for line in self.allocations)
 
     @property
     def available_quantity(self) -> int:
-        return self._purchased_quantity - self.allocated_quantity
+        return self.purchased_quantity - self.allocated_quantity
 
     def can_allocate(self, line: OrderLine) -> bool:
         return self.sku == line.sku and self.available_quantity >= line.qty
