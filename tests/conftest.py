@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import Engine, StaticPool, create_engine
 from sqlalchemy.orm import Session
 
-from src.orm import Base
+from src.orm_classical_mapping import mapper_registry
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def in_memory_db() -> Engine:
 
 @pytest.fixture
 def session(in_memory_db: Engine) -> Generator[Session, None, None]:
-    Base.metadata.create_all(in_memory_db)
+    mapper_registry.metadata.create_all(in_memory_db)
     with Session(in_memory_db) as session:
         yield session
-    Base.metadata.drop_all(in_memory_db)
+    mapper_registry.metadata.drop_all(in_memory_db)
