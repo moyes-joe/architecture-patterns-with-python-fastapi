@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Generator, Protocol
+from collections.abc import Generator
+from typing import Protocol
 
 from fastapi import Depends
 from sqlalchemy import create_engine
@@ -21,7 +22,9 @@ class SessionProtocol(Protocol):
         ...
 
 
-def get_session(engine: Engine = Depends(get_engine)) -> Generator[Session, None, None]:
+def get_session(
+    engine: Engine = Depends(get_engine),  # noqa: B008
+) -> Generator[Session, None, None]:
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
     try:
@@ -31,6 +34,6 @@ def get_session(engine: Engine = Depends(get_engine)) -> Generator[Session, None
 
 
 def get_repository(
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_session),  # noqa: B008
 ) -> repository.AbstractRepository[model.Batch]:
     return repository.SqlAlchemyRepository(session)

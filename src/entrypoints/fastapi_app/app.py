@@ -21,8 +21,10 @@ router = APIRouter()
 @router.post("/batches", status_code=201)
 def add_batch_endpoint(
     batch_create: BatchCreate,
-    repo: repository.AbstractRepository[model.Batch] = Depends(get_repository),
-    session: Session = Depends(get_session),
+    repo: repository.AbstractRepository[model.Batch] = Depends(  # noqa: B008
+        get_repository
+    ),
+    session: Session = Depends(get_session),  # noqa: B008
 ) -> dict[str, str]:
     services.add_batch(
         ref=batch_create.reference,
@@ -38,8 +40,10 @@ def add_batch_endpoint(
 @router.post("/allocations", status_code=201)
 def allocate_endpoint(
     order_line_create: OrderLineCreate,
-    repo: repository.AbstractRepository[model.Batch] = Depends(get_repository),
-    session: Session = Depends(get_session),
+    repo: repository.AbstractRepository[model.Batch] = Depends(  # noqa: B008
+        get_repository
+    ),
+    session: Session = Depends(get_session),  # noqa: B008
 ) -> BatchRef:
     try:
         batchref = services.allocate(
@@ -50,7 +54,7 @@ def allocate_endpoint(
             session=session,
         )
     except (model.OutOfStock, services.InvalidSku) as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     return BatchRef(batchref=batchref)
 

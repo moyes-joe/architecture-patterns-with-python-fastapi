@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Generator
+from collections.abc import Callable, Generator
 
 import psycopg2
 import pytest
