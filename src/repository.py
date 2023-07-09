@@ -1,23 +1,30 @@
 from __future__ import annotations
 
 import abc
+from typing import Protocol, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src import model
 
+ModelType = TypeVar("ModelType")
 
-class AbstractRepository(abc.ABC):
+
+class AbstractRepository(Protocol[ModelType]):
+    def add(self, batch: ModelType) -> ModelType:
+        ...
+
     @abc.abstractmethod
-    def add(self, batch: model.Batch) -> model.Batch:
-        raise NotImplementedError
+    def get(self, reference) -> ModelType:
+        ...
 
     @abc.abstractmethod
-    def get(self, reference) -> model.Batch:
-        raise NotImplementedError
+    def list(self) -> list[ModelType]:
+        ...
 
 
+# TODO: Make generic
 class SqlAlchemyRepository(AbstractRepository):
     def __init__(self, session: Session):
         self.session = session
