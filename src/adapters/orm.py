@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import registry, relationship
 
-from src import model
+from src.domain import model
 
 mapper_registry = registry()
 

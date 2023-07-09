@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from src import model, repository, services, session
+from src.adapters import repository, session
+from src.domain import model
+from src.service_layer import services
 
 
 class FakeRepository(repository.AbstractRepository):

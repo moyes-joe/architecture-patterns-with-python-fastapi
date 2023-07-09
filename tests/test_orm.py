@@ -5,7 +5,7 @@ from datetime import date
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from src import model
+from src.domain import model
 
 
 def test_orderline_mapper_can_load_lines(session: Session) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from src import model, repository, session
+from src.adapters import repository, session
+from src.domain import model
 
 
 class InvalidSku(Exception):

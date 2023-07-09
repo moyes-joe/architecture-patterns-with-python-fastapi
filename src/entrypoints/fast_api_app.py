@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from src import model, repository, services
+from src.adapters import repository
 from src.config import config
-from src.fastapi_deps import get_repository, get_session
+from src.domain import model
+from src.entrypoints.fastapi_deps import get_repository, get_session
+from src.service_layer import services
 
 app = FastAPI(
     title=config.PROJECT_NAME, openapi_url=f"{config.API_V1_STR}/openapi.json"

@@ -9,10 +9,10 @@ from sqlalchemy import Engine, StaticPool, create_engine, text
 from sqlalchemy.orm import Session
 
 from migrations import downgrade_migrations, upgrade_migrations
+from src.adapters.orm import mapper_registry
 from src.config import config
-from src.fast_api_app import app
-from src.fastapi_deps import get_engine
-from src.orm import mapper_registry
+from src.entrypoints.fast_api_app import app
+from src.entrypoints.fastapi_deps import get_engine
 
 
 @pytest.fixture

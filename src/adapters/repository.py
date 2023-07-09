@@ -6,7 +6,7 @@ from typing import Protocol, TypeVar
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src import model
+from src.domain import model
 
 ModelType = TypeVar("ModelType")
 

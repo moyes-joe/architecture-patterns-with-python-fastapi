@@ -3,7 +3,8 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from src import model, repository
+from src.adapters import repository
+from src.domain import model
 
 
 def insert_order_line(session: Session) -> int:

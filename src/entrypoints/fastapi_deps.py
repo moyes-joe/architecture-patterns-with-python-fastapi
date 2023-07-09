@@ -7,8 +7,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from src import model, repository
+from src.adapters import repository
 from src.config import config
+from src.domain import model
 
 
 def get_engine() -> Engine:
