@@ -11,7 +11,7 @@ from src.domain import model
 ModelType = TypeVar("ModelType")
 
 
-class AbstractRepository(Protocol[ModelType]):
+class RepositoryProtocol(Protocol[ModelType]):
     def add(self, batch: ModelType) -> ModelType:
         ...
 
@@ -25,7 +25,7 @@ class AbstractRepository(Protocol[ModelType]):
 
 
 # TODO: Make generic
-class SqlAlchemyRepository(AbstractRepository):
+class SqlAlchemyRepository(RepositoryProtocol):
     def __init__(self, session: Session):
         self.session = session
 

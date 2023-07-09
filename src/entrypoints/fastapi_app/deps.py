@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from src.adapters import repository
 from src.config import config
 from src.domain import model
+from src.service_layer import unit_of_work
 
 
 def get_engine() -> Engine:
@@ -33,7 +34,13 @@ def get_session(
         db.close()
 
 
+def get_unit_of_work(
+    session: Session = Depends(get_session),  # noqa: B008
+) -> unit_of_work.UnitOfWorkProtocol:
+    return unit_of_work.SqlAlchemyUnitOfWork(session=session)
+
+
 def get_repository(
     session: Session = Depends(get_session),  # noqa: B008
-) -> repository.AbstractRepository[model.Batch]:
+) -> repository.RepositoryProtocol[model.Batch]:
     return repository.SqlAlchemyRepository(session)

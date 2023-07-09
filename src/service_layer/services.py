@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.adapters import repository, session
 from src.domain import model
+
+from .unit_of_work import UnitOfWorkProtocol
 
 
 class InvalidSku(Exception):
@@ -19,25 +20,25 @@ def add_batch(
     sku: str,
     qty: int,
     eta: date | None,
-    repo: repository.AbstractRepository,
-    session: session.SessionProtocol,
+    uow: UnitOfWorkProtocol,
 ) -> None:
-    batch = model.Batch(reference=ref, sku=sku, purchased_quantity=qty, eta=eta)
-    repo.add(batch)
-    session.commit()
+    with uow:
+        batch = model.Batch(reference=ref, sku=sku, purchased_quantity=qty, eta=eta)
+        uow.batches.add(batch)
+        uow.commit()
 
 
 def allocate(
     orderid: str,
     sku: str,
     qty: int,
-    repo: repository.AbstractRepository,
-    session: session.SessionProtocol,
+    uow: UnitOfWorkProtocol,
 ) -> str:
-    line = model.OrderLine(orderid=orderid, sku=sku, qty=qty)
-    batches = repo.list()
-    if not is_valid_sku(line.sku, batches):
-        raise InvalidSku(f"Invalid sku {line.sku}")
-    batchref = model.allocate(line, batches)
-    session.commit()
+    with uow:
+        line = model.OrderLine(orderid=orderid, sku=sku, qty=qty)
+        batches = uow.batches.list()
+        if not is_valid_sku(line.sku, batches):
+            raise InvalidSku(f"Invalid sku {line.sku}")
+        batchref = model.allocate(line, batches)
+        uow.commit()
     return batchref
