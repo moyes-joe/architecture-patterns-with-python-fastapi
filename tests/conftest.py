@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from migrations import downgrade_migrations, upgrade_migrations
 from src.adapters.orm import mapper_registry
 from src.config import config
-from src.entrypoints.fast_api_app import app
-from src.entrypoints.fastapi_deps import get_engine
+from src.entrypoints.fastapi_app.app import app
+from src.entrypoints.fastapi_app.deps import get_engine
 
 
 @pytest.fixture
