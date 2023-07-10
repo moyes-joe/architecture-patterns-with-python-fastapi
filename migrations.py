@@ -4,7 +4,6 @@ import pathlib
 
 from alembic import command
 from alembic.config import Config
-
 from src.config import config
 
 BASE_PATH = pathlib.Path(__file__).parent.absolute()
