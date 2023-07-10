@@ -42,22 +42,24 @@ allocations = Table(
     Column("batch_id", ForeignKey("batches.id")),
 )
 
-order_lines_mapper = mapper_registry.map_imperatively(model.OrderLine, order_lines)
 
-batches_mapper = mapper_registry.map_imperatively(
-    model.Batch,
-    batches,
-    properties={
-        "allocations": relationship(
-            order_lines_mapper, secondary=allocations, collection_class=set
-        )
-    },
-)
+def start_mappers() -> None:
+    order_lines_mapper = mapper_registry.map_imperatively(model.OrderLine, order_lines)
 
-mapper_registry.map_imperatively(
-    model.Product,
-    products,
-    properties={
-        "batches": relationship(batches_mapper),
-    },
-)
+    batches_mapper = mapper_registry.map_imperatively(
+        model.Batch,
+        batches,
+        properties={
+            "allocations": relationship(
+                order_lines_mapper, secondary=allocations, collection_class=set
+            )
+        },
+    )
+
+    mapper_registry.map_imperatively(
+        model.Product,
+        products,
+        properties={
+            "batches": relationship(batches_mapper),
+        },
+    )

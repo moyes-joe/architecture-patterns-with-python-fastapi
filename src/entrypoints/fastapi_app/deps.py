@@ -19,16 +19,14 @@ class SessionProtocol(Protocol):
         ...
 
 
-def get_engine() -> Engine:
-    return create_engine(
-        config.POSTGRES_URI, pool_pre_ping=True, isolation_level="REPEATABLE READ"
-    )
+def get_engine(url: str = Depends(lambda: config.POSTGRES_URI)) -> Engine:  # noqa: B008
+    return create_engine(url, isolation_level="REPEATABLE READ")
 
 
 def get_session(
     engine: Engine = Depends(get_engine),  # noqa: B008
 ) -> Generator[Session, None, None]:
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     try:
         yield db

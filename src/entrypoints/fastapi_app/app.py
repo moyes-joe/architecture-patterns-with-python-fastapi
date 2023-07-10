@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import cache
+
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from src.config import config
@@ -14,6 +16,14 @@ app = FastAPI(
 )
 
 router = APIRouter()
+
+
+@app.on_event("startup")
+@cache  # run once per process
+def startup_event() -> None:
+    from src.adapters.orm import start_mappers
+
+    start_mappers()
 
 
 @router.post("/batches", status_code=201)

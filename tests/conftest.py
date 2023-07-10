@@ -2,46 +2,39 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator
 
-import psycopg2
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, StaticPool, create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import clear_mappers, sessionmaker
 
-from migrations import downgrade_migrations, upgrade_migrations
-from src.adapters.orm import mapper_registry
+from src.adapters.orm import mapper_registry, start_mappers
 from src.config import config
 from src.entrypoints.fastapi_app.app import app
 from src.entrypoints.fastapi_app.deps import get_engine
 
 
+@pytest.fixture(scope="session", autouse=True)
+def start_clear_mappers() -> Generator[None, None, None]:
+    start_mappers()
+    yield
+    clear_mappers()
+
+
 @pytest.fixture
-def in_memory_engine() -> Generator[Engine, None, None]:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        # echo=True,
-    )
+def in_memory_db() -> Engine:
+    engine = create_engine("sqlite:///:memory:")
     mapper_registry.metadata.create_all(engine)
-    yield engine
-    mapper_registry.metadata.drop_all(engine)
+    return engine
 
 
 @pytest.fixture
-def session(in_memory_engine: Engine) -> Generator[Session, None, None]:
-    with Session(in_memory_engine) as session:
-        yield session
+def session_factory(in_memory_db) -> Generator[sessionmaker, None, None]:
+    yield sessionmaker(bind=in_memory_db)
 
 
 @pytest.fixture
-def session_factory(
-    in_memory_engine: Engine,
-) -> Generator[Callable[[], Session], None, None]:
-    def _session_factory() -> Session:
-        return Session(in_memory_engine)
-
-    yield _session_factory
+def session(session_factory) -> Generator[sessionmaker, None, None]:
+    return session_factory()
 
 
 @pytest.fixture
@@ -54,28 +47,32 @@ def client(in_memory_engine: Engine) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
 
 
-# FIXME: Not used
 @pytest.fixture(scope="session")
-def postgres_database() -> None:
-    dsn_parts = config.POSTGRES_URI.split("/")
-    database_name = dsn_parts[-1]
-    dsn = "/".join(dsn_parts[:-1] + ["postgres"])
-    con = psycopg2.connect(dsn)
-    con.autocommit = True
-    cur = con.cursor()
-    cur.execute(f"DROP DATABASE IF EXISTS {database_name};")
-    cur.execute(f"CREATE DATABASE {database_name};")
+def postgres_db() -> Generator[Engine, None, None]:
+    engine = create_engine(config.POSTGRES_URI, isolation_level="REPEATABLE READ")
+    mapper_registry.metadata.create_all(engine)
+    yield engine
 
 
-# FIXME: Not used
 @pytest.fixture
-@pytest.mark.usefixtures("postgres_database")
-def postgres_session() -> Generator[Session, None, None]:
-    dsn = config.POSTGRES_URI
-    engine = create_engine(dsn, echo=False)
-    session = Session(engine)
-    upgrade_migrations(dsn)
-    yield session
-    session.close()
-    downgrade_migrations(dsn)
-    engine.dispose()
+def postgres_session_factory(
+    postgres_db: Engine,
+) -> Generator[sessionmaker, None, None]:
+    yield sessionmaker(bind=postgres_db)
+
+
+@pytest.fixture
+def postgres_session(
+    postgres_session_factory: Callable[[], sessionmaker]
+) -> Generator[sessionmaker, None, None]:
+    yield postgres_session_factory()
+
+
+@pytest.fixture
+def postgres_client(postgres_db: Engine) -> Generator[TestClient, None, None]:
+    app.dependency_overrides[get_engine] = lambda: postgres_db
+
+    with TestClient(app) as c:
+        yield c
+
+    app.dependency_overrides.clear()

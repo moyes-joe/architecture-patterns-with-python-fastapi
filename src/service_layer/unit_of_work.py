@@ -34,7 +34,8 @@ class SqlAlchemyUnitOfWork(UnitOfWorkProtocol):
         return super().__enter__()
 
     def __exit__(self, *args) -> None:
-        super().__exit__(*args)
+        self.rollback()
+        # super().__exit__(*args)  # don't call methods on protocol
         # Session is closed insession factory
         # self.session.close()
 
