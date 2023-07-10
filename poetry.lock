@@ -1157,6 +1157,24 @@ files = [
 ]
 
 [[package]]
+name = "uvicorn"
+version = "0.22.0"
+description = "The lightning-fast ASGI server."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "uvicorn-0.22.0-py3-none-any.whl", hash = "sha256:e9434d3bbf05f310e762147f769c9f21235ee118ba2d2bf1155a7196448bd996"},
+    {file = "uvicorn-0.22.0.tar.gz", hash = "sha256:79277ae03db57ce7d9aa0567830bbb51d7a612f54d6e1e3e92da3ef24c2c8ed8"},
+]
+
+[package.dependencies]
+click = ">=7.0"
+h11 = ">=0.8"
+
+[package.extras]
+standard = ["colorama (>=0.4)", "httptools (>=0.5.0)", "python-dotenv (>=0.13)", "pyyaml (>=5.1)", "uvloop (>=0.14.0,!=0.15.0,!=0.15.1)", "watchfiles (>=0.13)", "websockets (>=10.4)"]
+
+[[package]]
 name = "virtualenv"
 version = "20.23.1"
 description = "Virtual Python Environment builder"
@@ -1179,4 +1197,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "019267a6d66c40117d8b276930fe76e1b4f53c89f87a0d44d25094db3b48e976"
+content-hash = "4165559eee8d3b4f77e185177044823d2e4857e9d45e6411fc7adc8c04859b18"
