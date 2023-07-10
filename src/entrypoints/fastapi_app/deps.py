@@ -14,13 +14,15 @@ from src.domain import model
 from src.service_layer import unit_of_work
 
 
-def get_engine() -> Engine:
-    return create_engine(config.POSTGRES_URI, pool_pre_ping=True)
-
-
 class SessionProtocol(Protocol):
     def commit(self) -> None:
         ...
+
+
+def get_engine() -> Engine:
+    return create_engine(
+        config.POSTGRES_URI, pool_pre_ping=True, isolation_level="REPEATABLE READ"
+    )
 
 
 def get_session(

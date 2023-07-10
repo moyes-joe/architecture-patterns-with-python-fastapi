@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import abc
 from typing import Protocol, TypeVar
 
 from sqlalchemy import select
@@ -12,15 +11,10 @@ ModelType = TypeVar("ModelType")
 
 
 class RepositoryProtocol(Protocol[ModelType]):
-    def add(self, batch: ModelType) -> ModelType:
+    def add(self, product: ModelType) -> ModelType:
         ...
 
-    @abc.abstractmethod
-    def get(self, reference) -> ModelType:
-        ...
-
-    @abc.abstractmethod
-    def list(self) -> list[ModelType]:
+    def get(self, sku: str) -> ModelType | None:
         ...
 
 
@@ -29,14 +23,14 @@ class SqlAlchemyRepository(RepositoryProtocol):
     def __init__(self, session: Session):
         self.session = session
 
-    def add(self, batch) -> model.Batch:
-        self.session.add(batch)
-        return batch
+    def add(self, product: model.Product) -> model.Product:
+        self.session.add(product)
+        return product
 
-    def get(self, reference) -> model.Batch:
-        query = select(model.Batch).where(model.Batch.reference == reference)
-        [db_model] = self.session.execute(query).one()
-        return db_model
+    def get(self, sku: str) -> model.Product | None:
+        query = select(model.Product).where(model.Product.sku == sku)  # type: ignore
+        return self.session.scalar(query)
 
-    def list(self) -> list[model.Batch]:
-        return self.session.query(model.Batch).all()
+    def list(self) -> list[model.Product]:
+        query = select(model.Product)
+        return list(self.session.execute(query).scalars().all())

@@ -12,22 +12,22 @@ if TYPE_CHECKING:
 
 
 class FakeRepository(repository.RepositoryProtocol):
-    def __init__(self, batches: list[model.Batch]) -> None:
-        self._batches = set(batches)
+    def __init__(self, products: list[model.Product]) -> None:
+        self._products = set(products)
 
-    def add(self, batch: model.Batch) -> None:
-        self._batches.add(batch)
+    def add(self, product: model.Product) -> None:
+        self._products.add(product)
 
-    def get(self, reference: str) -> model.Batch | None:
-        return next(b for b in self._batches if b.reference == reference)
+    def get(self, sku: str) -> model.Product | None:
+        return next((b for b in self._products if b.sku == sku), None)
 
-    def list(self) -> list[model.Batch]:
-        return list(self._batches)
+    def list(self) -> list[model.Product]:
+        return list(self._products)
 
 
 class FakeUnitOfWork(unit_of_work.UnitOfWorkProtocol):
     def __init__(self) -> None:
-        self.batches = FakeRepository([])
+        self.products = FakeRepository([])
         self.committed = False
 
     def commit(self) -> None:
@@ -40,7 +40,7 @@ class FakeUnitOfWork(unit_of_work.UnitOfWorkProtocol):
 def test_add_batch():
     uow = FakeUnitOfWork()
     services.add_batch(ref="b1", sku="CRUNCHY-ARMCHAIR", qty=100, eta=None, uow=uow)
-    assert uow.batches.get(reference="b1") is not None
+    assert uow.products.get(sku="CRUNCHY-ARMCHAIR") is not None
     assert uow.committed
 
 

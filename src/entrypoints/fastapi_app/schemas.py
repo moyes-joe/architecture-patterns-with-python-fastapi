@@ -18,8 +18,10 @@ class BatchRef(BaseModel):
 class BatchCreate(BaseModel):
     sku: str
     qty: int
-    eta: str
-    reference: str
+    eta: str | None
+    ref: str
 
-    def eta_date(self) -> date:
+    def eta_date(self) -> date | None:
+        if self.eta is None:
+            return None
         return datetime.fromisoformat(self.eta).date()

@@ -24,7 +24,7 @@ def add_batch_endpoint(
     ),
 ) -> dict[str, str]:
     services.add_batch(
-        ref=batch_create.reference,
+        ref=batch_create.ref,
         sku=batch_create.sku,
         qty=batch_create.qty,
         eta=batch_create.eta_date(),

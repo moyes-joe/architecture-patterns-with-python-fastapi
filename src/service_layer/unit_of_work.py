@@ -8,7 +8,7 @@ from src.adapters import repository
 
 
 class UnitOfWorkProtocol(Protocol):
-    batches: repository.RepositoryProtocol
+    products: repository.RepositoryProtocol
 
     def __enter__(self) -> UnitOfWorkProtocol:
         return self
@@ -24,11 +24,13 @@ class UnitOfWorkProtocol(Protocol):
 
 
 class SqlAlchemyUnitOfWork(UnitOfWorkProtocol):
+    products: repository.SqlAlchemyRepository  # move to init?
+
     def __init__(self, session: Session) -> None:
         self.session = session
 
     def __enter__(self) -> UnitOfWorkProtocol:
-        self.batches = repository.SqlAlchemyRepository(self.session)
+        self.products = repository.SqlAlchemyRepository(self.session)  # move to init?
         return super().__enter__()
 
     def __exit__(self, *args) -> None:
