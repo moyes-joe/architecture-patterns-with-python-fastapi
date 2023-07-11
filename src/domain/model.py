@@ -4,11 +4,8 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from .entity import Entity
+from .events import Event, OutOfStock
 from .value_object import ValueObject
-
-
-class OutOfStock(Exception):
-    pass
 
 
 @dataclass(kw_only=True)
@@ -16,15 +13,17 @@ class Product:
     sku: str
     batches: list[Batch]
     version_number: int = 0
+    events: list[Event] = field(default_factory=list)
 
-    def allocate(self, line: OrderLine) -> str:
+    def allocate(self, line: OrderLine) -> str | None:
         try:
             batch = next(b for b in sorted(self.batches) if b.can_allocate(line))
             batch.allocate(line)
             self.version_number += 1
             return batch.reference
-        except StopIteration as e:
-            raise OutOfStock(f"Out of stock for sku {line.sku}") from e
+        except StopIteration:
+            self.events.append(OutOfStock(sku=line.sku))
+            return None
 
     def __hash__(self) -> int:
         return hash(self.sku)

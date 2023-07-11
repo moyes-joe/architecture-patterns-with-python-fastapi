@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table
+from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table, event
 from sqlalchemy.orm import registry, relationship
 
 from src.domain import model
@@ -63,3 +63,8 @@ def start_mappers() -> None:
             "batches": relationship(batches_mapper),
         },
     )
+
+
+@event.listens_for(model.Product, "load")
+def receive_load(product, _):
+    product.events = []

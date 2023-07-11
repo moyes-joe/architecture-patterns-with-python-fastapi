@@ -5,10 +5,9 @@ from functools import cache
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from src.config import config
-from src.domain import model
 from src.service_layer import services, unit_of_work
 
-from .deps import get_unit_of_work
+from .deps import get_event_publishing_unit_of_work
 from .schemas import BatchCreate, BatchRef, OrderLineCreate
 
 app = FastAPI(
@@ -30,7 +29,7 @@ def startup_event() -> None:
 def add_batch_endpoint(
     batch_create: BatchCreate,
     unit_of_work: unit_of_work.UnitOfWorkProtocol = Depends(  # noqa: B008
-        get_unit_of_work
+        get_event_publishing_unit_of_work
     ),
 ) -> dict[str, str]:
     services.add_batch(
@@ -47,7 +46,7 @@ def add_batch_endpoint(
 def allocate_endpoint(
     order_line_create: OrderLineCreate,
     unit_of_work: unit_of_work.UnitOfWorkProtocol = Depends(  # noqa: B008
-        get_unit_of_work
+        get_event_publishing_unit_of_work
     ),
 ) -> BatchRef:
     try:
@@ -57,8 +56,11 @@ def allocate_endpoint(
             qty=order_line_create.qty,
             uow=unit_of_work,
         )
-    except (model.OutOfStock, services.InvalidSku) as e:
+    except services.InvalidSku as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+    if batchref is None:
+        raise HTTPException(status_code=400, detail="Out of stock")
 
     return BatchRef(batchref=batchref)
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import threading
-import time
 import traceback
 from collections.abc import Callable
 from datetime import date
@@ -10,6 +8,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from src.adapters import repository
 from src.domain import model
 from src.service_layer import unit_of_work
 
@@ -52,28 +51,14 @@ def get_allocated_batch_ref(session: Session, orderid: str, sku: str) -> str:
     return batchref
 
 
-def try_to_allocate(
-    session: Session, orderid: str, sku: str, exceptions: list[Exception]
-) -> None:
-    line = model.OrderLine(orderid=orderid, sku=sku, qty=10)
-    try:
-        with unit_of_work.SqlAlchemyUnitOfWork(session=session) as uow:
-            product = uow.products.get(sku=sku)
-            product.allocate(line)
-            time.sleep(0.2)
-            uow.commit()
-    except Exception as e:
-        print(traceback.format_exc())
-        exceptions.append(e)
-
-
 def test_uow_can_retrieve_a_batch_and_allocate_to_it(session: Session) -> None:
     insert_batch(
         session=session, ref="batch1", sku="HIPSTER-WORKBENCH", qty=100, eta=None
     )
     session.commit()
 
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session)
+    repo = repository.SqlAlchemyRepository(session=session)
+    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session, repo=repo)
     with uow:
         product = uow.products.get(sku="HIPSTER-WORKBENCH")
         line = model.OrderLine(orderid="o1", sku="HIPSTER-WORKBENCH", qty=10)
@@ -87,7 +72,8 @@ def test_uow_can_retrieve_a_batch_and_allocate_to_it(session: Session) -> None:
 
 
 def test_rolls_back_uncommitted_work_by_default(session: Session) -> None:
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session)
+    repo = repository.SqlAlchemyRepository(session=session)
+    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session, repo=repo)
     with uow:
         insert_batch(
             session=uow.session, ref="batch1", sku="MEDIUM-PLINTH", qty=100, eta=None
@@ -102,7 +88,8 @@ def test_rolls_back_on_error(session: Session) -> None:
     class MyException(Exception):
         pass
 
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session)
+    repo = repository.SqlAlchemyRepository(session=session)
+    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session, repo=repo)
     with pytest.raises(MyException):
         with uow:
             insert_batch(
@@ -117,9 +104,13 @@ def test_rolls_back_on_error(session: Session) -> None:
 def emmulate_database_race(sku, session_1, session_2, order1, order2, exceptions):
     line = model.OrderLine(orderid=order1, sku=sku, qty=10)
     line2 = model.OrderLine(orderid=order2, sku=sku, qty=10)
+    repo = repository.SqlAlchemyRepository(session=session_1)
+    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session_1, repo=repo)
+    repo2 = repository.SqlAlchemyRepository(session=session_2)
+    uow2 = unit_of_work.SqlAlchemyUnitOfWork(session=session_2, repo=repo2)
     try:
-        with unit_of_work.SqlAlchemyUnitOfWork(session=session_1) as uow:
-            with unit_of_work.SqlAlchemyUnitOfWork(session=session_2) as uow2:
+        with uow:
+            with uow2:
                 product = uow.products.get(sku=sku)
                 product2 = uow2.products.get(sku=sku)
                 product.allocate(line)
@@ -149,17 +140,6 @@ def test_concurrent_updates_to_version_are_not_allowed(
 
     assert len(exceptions) == 1, exceptions
 
-    # thread1 = threading.Thread(
-    #     target=try_to_allocate, args=(session_1, order1, sku, exceptions)
-    # )
-    # thread2 = threading.Thread(
-    #     target=try_to_allocate, args=(session_2, order2, sku, exceptions)
-    # )
-    # thread1.start()
-    # thread2.start()
-    # thread1.join(timeout=1.0)
-    # thread2.join(timeout=1.0)
-
     [[version]] = session_1.execute(
         text("SELECT version_number FROM products WHERE sku=:sku"),
         dict(sku=sku),
@@ -181,5 +161,6 @@ def test_concurrent_updates_to_version_are_not_allowed(
     )
     assert orders.rowcount == 1
     new_session = postgres_session_factory()
-    with unit_of_work.SqlAlchemyUnitOfWork(new_session) as uow:
+    repo = repository.SqlAlchemyRepository(session=new_session)
+    with unit_of_work.SqlAlchemyUnitOfWork(new_session, repo) as uow:
         uow.session.execute(text("select 1"))

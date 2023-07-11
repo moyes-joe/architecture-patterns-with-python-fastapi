@@ -1,20 +1,24 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 from sqlalchemy.orm.session import Session
 
 from src.adapters import repository
 
+from . import messagebus
 
-class UnitOfWorkProtocol(Protocol):
-    products: repository.RepositoryProtocol
+REPO_TYPE = TypeVar("REPO_TYPE", bound=repository.RepositoryProtocol)
+
+
+class UnitOfWorkProtocol(Protocol[REPO_TYPE]):
+    products: REPO_TYPE
 
     def __enter__(self) -> UnitOfWorkProtocol:
-        return self
+        ...
 
     def __exit__(self, *args) -> None:
-        self.rollback()
+        ...
 
     def commit(self) -> None:
         ...
@@ -24,14 +28,12 @@ class UnitOfWorkProtocol(Protocol):
 
 
 class SqlAlchemyUnitOfWork(UnitOfWorkProtocol):
-    products: repository.SqlAlchemyRepository  # move to init?
-
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, repo: repository.RepositoryProtocol) -> None:
         self.session = session
+        self.products = repo
 
-    def __enter__(self) -> UnitOfWorkProtocol:
-        self.products = repository.SqlAlchemyRepository(self.session)  # move to init?
-        return super().__enter__()
+    def __enter__(self) -> SqlAlchemyUnitOfWork:
+        return self
 
     def __exit__(self, *args) -> None:
         self.rollback()
@@ -44,3 +46,28 @@ class SqlAlchemyUnitOfWork(UnitOfWorkProtocol):
 
     def rollback(self) -> None:
         self.session.rollback()
+
+
+class EventPublishingUnitOfWork(UnitOfWorkProtocol[repository.TrackingRepository]):
+    def __init__(self, uow: UnitOfWorkProtocol) -> None:
+        self.uow = uow
+        self.products = uow.products
+
+    def __enter__(self) -> EventPublishingUnitOfWork:
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.rollback()
+
+    def commit(self) -> None:
+        self.uow.commit()
+        self.publish_events()
+
+    def publish_events(self) -> None:
+        for product in self.products.seen:
+            while product.events:
+                event = product.events.pop(0)
+                messagebus.handle(event)
+
+    def rollback(self) -> None:
+        self.uow.rollback()

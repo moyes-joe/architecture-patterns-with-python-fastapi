@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import TYPE_CHECKING
 
 from src.domain import model
 
-from .unit_of_work import UnitOfWorkProtocol
+if TYPE_CHECKING:
+    from .unit_of_work import UnitOfWorkProtocol
 
 
 class InvalidSku(Exception):
@@ -38,7 +40,7 @@ def allocate(
     sku: str,
     qty: int,
     uow: UnitOfWorkProtocol,
-) -> str:
+) -> str | None:
     line = model.OrderLine(orderid=orderid, sku=sku, qty=qty)
     with uow:
         product = uow.products.get(sku=line.sku)
