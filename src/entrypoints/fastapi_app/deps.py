@@ -34,35 +34,26 @@ def get_session(
         db.close()
 
 
-def get_repository(
+def _get_repository(
     session: Session = Depends(get_session),  # noqa: B008
-) -> repository.RepositoryProtocol[model.Product]:
+) -> repository.Repository[model.Product]:
     return repository.SqlAlchemyRepository(session)
 
 
-def get_tracking_repository(
-    repo: repository.RepositoryProtocol[model.Product] = Depends(  # noqa: B008
-        get_repository
-    ),
+def get_repository(
+    repo: repository.Repository[model.Product] = Depends(_get_repository),  # noqa: B008
 ) -> repository.TrackingRepository:
     return repository.TrackingRepository(repo=repo)
 
 
-def get_unit_of_work(
+def _get_unit_of_work(
     session: Session = Depends(get_session),  # noqa: B008
-    repo: repository.RepositoryProtocol[model.Product] = Depends(  # noqa: B008
-        get_repository
-    ),
-) -> unit_of_work.UnitOfWorkProtocol:
+    repo: repository.Repository[model.Product] = Depends(get_repository),  # noqa: B008
+) -> unit_of_work.UnitOfWorkStrategy:
     return unit_of_work.SqlAlchemyUnitOfWork(session=session, repo=repo)
 
 
-def get_event_publishing_unit_of_work(
-    session: Session = Depends(get_session),  # noqa: B008
-    repo: repository.RepositoryProtocol[model.Product] = Depends(  # noqa: B008
-        get_tracking_repository
-    ),
-) -> unit_of_work.EventPublishingUnitOfWork:
-    return unit_of_work.EventPublishingUnitOfWork(
-        uow=unit_of_work.SqlAlchemyUnitOfWork(session=session, repo=repo)
-    )
+def get_unit_of_work(
+    uow: unit_of_work.UnitOfWorkStrategy = Depends(_get_unit_of_work),  # noqa: B008
+) -> unit_of_work.UnitOfWork:
+    return unit_of_work.UnitOfWork(uow=uow)

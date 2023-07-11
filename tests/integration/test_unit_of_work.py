@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from datetime import date
 
 import pytest
@@ -13,6 +13,26 @@ from src.domain import model
 from src.service_layer import unit_of_work
 
 from ..random_refs import random_batchref, random_orderid, random_sku
+
+
+@pytest.fixture
+def uow_factory(
+    session: Session,
+) -> Generator[Callable[[], unit_of_work.UnitOfWork], None, None]:
+    def get_uow() -> unit_of_work.UnitOfWork:
+        repo = repository.SqlAlchemyRepository(session)
+        tracking_repo = repository.TrackingRepository(repo)
+        sql_alchemy_uow = unit_of_work.SqlAlchemyUnitOfWork(
+            session=session, repo=tracking_repo
+        )
+        return unit_of_work.UnitOfWork(uow=sql_alchemy_uow)
+
+    yield get_uow
+
+
+@pytest.fixture
+def uow(uow_factory: Callable[[], unit_of_work.UnitOfWork]) -> unit_of_work.UnitOfWork:
+    return uow_factory()
 
 
 def insert_batch(
@@ -51,14 +71,14 @@ def get_allocated_batch_ref(session: Session, orderid: str, sku: str) -> str:
     return batchref
 
 
-def test_uow_can_retrieve_a_batch_and_allocate_to_it(session: Session) -> None:
+def test_uow_can_retrieve_a_batch_and_allocate_to_it(
+    session: Session, uow: unit_of_work.UnitOfWork
+) -> None:
     insert_batch(
         session=session, ref="batch1", sku="HIPSTER-WORKBENCH", qty=100, eta=None
     )
     session.commit()
 
-    repo = repository.SqlAlchemyRepository(session=session)
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session, repo=repo)
     with uow:
         product = uow.products.get(sku="HIPSTER-WORKBENCH")
         line = model.OrderLine(orderid="o1", sku="HIPSTER-WORKBENCH", qty=10)
@@ -71,12 +91,16 @@ def test_uow_can_retrieve_a_batch_and_allocate_to_it(session: Session) -> None:
     assert batchref == "batch1"
 
 
-def test_rolls_back_uncommitted_work_by_default(session: Session) -> None:
-    repo = repository.SqlAlchemyRepository(session=session)
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session, repo=repo)
+def test_rolls_back_uncommitted_work_by_default(
+    session: Session, uow: unit_of_work.UnitOfWork
+) -> None:
     with uow:
         insert_batch(
-            session=uow.session, ref="batch1", sku="MEDIUM-PLINTH", qty=100, eta=None
+            session=session,
+            ref="batch1",
+            sku="MEDIUM-PLINTH",
+            qty=100,
+            eta=None,
         )
 
     new_session = session
@@ -84,16 +108,14 @@ def test_rolls_back_uncommitted_work_by_default(session: Session) -> None:
     assert rows == []
 
 
-def test_rolls_back_on_error(session: Session) -> None:
+def test_rolls_back_on_error(session: Session, uow: unit_of_work.UnitOfWork) -> None:
     class MyException(Exception):
         pass
 
-    repo = repository.SqlAlchemyRepository(session=session)
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session, repo=repo)
     with pytest.raises(MyException):
         with uow:
             insert_batch(
-                session=uow.session, ref="batch1", sku="LARGE-FORK", qty=100, eta=None
+                session=session, ref="batch1", sku="LARGE-FORK", qty=100, eta=None
             )
             raise MyException()
 
@@ -101,13 +123,24 @@ def test_rolls_back_on_error(session: Session) -> None:
     assert rows == []
 
 
-def emmulate_database_race(sku, session_1, session_2, order1, order2, exceptions):
+def emmulate_database_race(
+    sku: str, session_1: Session, session_2: Session, exceptions: list[Exception]
+) -> None:
+    order1, order2 = random_orderid("1"), random_orderid("2")
     line = model.OrderLine(orderid=order1, sku=sku, qty=10)
     line2 = model.OrderLine(orderid=order2, sku=sku, qty=10)
     repo = repository.SqlAlchemyRepository(session=session_1)
-    uow = unit_of_work.SqlAlchemyUnitOfWork(session=session_1, repo=repo)
+    tracking_repo = repository.TrackingRepository(repo)
+    sql_alchemy_uow = unit_of_work.SqlAlchemyUnitOfWork(
+        session=session_1, repo=tracking_repo
+    )
+    uow = unit_of_work.UnitOfWork(uow=sql_alchemy_uow)
     repo2 = repository.SqlAlchemyRepository(session=session_2)
-    uow2 = unit_of_work.SqlAlchemyUnitOfWork(session=session_2, repo=repo2)
+    tracking_repo2 = repository.TrackingRepository(repo2)
+    sql_alchemy_uow2 = unit_of_work.SqlAlchemyUnitOfWork(
+        session=session_2, repo=tracking_repo2
+    )
+    uow2 = unit_of_work.UnitOfWork(uow=sql_alchemy_uow2)
     try:
         with uow:
             with uow2:
@@ -125,18 +158,21 @@ def emmulate_database_race(sku, session_1, session_2, order1, order2, exceptions
 def test_concurrent_updates_to_version_are_not_allowed(
     postgres_session_factory: Callable[[], Session]
 ) -> None:
-    sku, batch = random_sku(), random_batchref()
+    sku, ref = random_sku(), random_batchref()
     session_1 = postgres_session_factory()
     session_2 = postgres_session_factory()
     assert session_1 is not session_2
 
-    insert_batch(session_1, batch, sku, 100, eta=None, product_version=1)
+    insert_batch(
+        session=session_1, ref=ref, sku=sku, qty=100, eta=None, product_version=1
+    )
     session_1.commit()
 
-    order1, order2 = random_orderid("1"), random_orderid("2")
     exceptions: list[Exception] = []
 
-    emmulate_database_race(sku, session_1, session_2, order1, order2, exceptions)
+    emmulate_database_race(
+        sku=sku, session_1=session_1, session_2=session_2, exceptions=exceptions
+    )
 
     assert len(exceptions) == 1, exceptions
 
@@ -162,5 +198,10 @@ def test_concurrent_updates_to_version_are_not_allowed(
     assert orders.rowcount == 1
     new_session = postgres_session_factory()
     repo = repository.SqlAlchemyRepository(session=new_session)
-    with unit_of_work.SqlAlchemyUnitOfWork(new_session, repo) as uow:
-        uow.session.execute(text("select 1"))
+    tracking_repo = repository.TrackingRepository(repo)
+    sql_alchemy_uow = unit_of_work.SqlAlchemyUnitOfWork(
+        session=session_1, repo=tracking_repo
+    )
+    uow = unit_of_work.UnitOfWork(uow=sql_alchemy_uow)
+    with uow:
+        uow._uow.session.execute(text("select 1"))

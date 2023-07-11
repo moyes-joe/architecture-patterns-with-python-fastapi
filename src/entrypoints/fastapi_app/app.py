@@ -5,10 +5,11 @@ from functools import cache
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from src.config import config
-from src.service_layer import services, unit_of_work
+from src.domain import events
+from src.service_layer import handlers, messagebus, unit_of_work
 
-from .deps import get_event_publishing_unit_of_work
-from .schemas import BatchCreate, BatchRef, OrderLineCreate
+from .deps import get_unit_of_work
+from .schemas import BatchRef
 
 app = FastAPI(
     title=config.PROJECT_NAME, openapi_url=f"{config.API_V1_STR}/openapi.json"
@@ -27,36 +28,22 @@ def startup_event() -> None:
 
 @router.post("/batches", status_code=201)
 def add_batch_endpoint(
-    batch_create: BatchCreate,
-    unit_of_work: unit_of_work.UnitOfWorkProtocol = Depends(  # noqa: B008
-        get_event_publishing_unit_of_work
-    ),
+    batch_create: events.BatchCreated,
+    unit_of_work: unit_of_work.UnitOfWork = Depends(get_unit_of_work),  # noqa: B008
 ) -> dict[str, str]:
-    services.add_batch(
-        ref=batch_create.ref,
-        sku=batch_create.sku,
-        qty=batch_create.qty,
-        eta=batch_create.eta_date(),
-        uow=unit_of_work,
-    )
+    messagebus.handle(event=batch_create, uow=unit_of_work)
     return {"message": "OK"}
 
 
 @router.post("/allocations", status_code=201)
 def allocate_endpoint(
-    order_line_create: OrderLineCreate,
-    unit_of_work: unit_of_work.UnitOfWorkProtocol = Depends(  # noqa: B008
-        get_event_publishing_unit_of_work
-    ),
+    allocation_required: events.AllocationRequired,
+    unit_of_work: unit_of_work.UnitOfWork = Depends(get_unit_of_work),  # noqa: B008
 ) -> BatchRef:
     try:
-        batchref = services.allocate(
-            orderid=order_line_create.orderid,
-            sku=order_line_create.sku,
-            qty=order_line_create.qty,
-            uow=unit_of_work,
-        )
-    except services.InvalidSku as e:
+        results = messagebus.handle(event=allocation_required, uow=unit_of_work)
+        batchref = results.pop(0)
+    except (handlers.InvalidSku, handlers.InvalidRef) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     if batchref is None:

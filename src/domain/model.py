@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+from . import events as domain_events
 from .entity import Entity
-from .events import Event, OutOfStock
 from .value_object import ValueObject
 
 
@@ -13,7 +13,7 @@ class Product:
     sku: str
     batches: list[Batch]
     version_number: int = 0
-    events: list[Event] = field(default_factory=list)
+    events: list[domain_events.Event] = field(default_factory=list)
 
     def allocate(self, line: OrderLine) -> str | None:
         try:
@@ -22,8 +22,19 @@ class Product:
             self.version_number += 1
             return batch.reference
         except StopIteration:
-            self.events.append(OutOfStock(sku=line.sku))
+            self.events.append(domain_events.OutOfStock(sku=line.sku))
             return None
+
+    def change_batch_quantity(self, ref: str, qty: int):
+        batch = next(b for b in self.batches if b.reference == ref)
+        batch.purchased_quantity = qty
+        while batch.available_quantity < 0:
+            line = batch.deallocate_one()
+            self.events.append(
+                domain_events.AllocationRequired(
+                    orderid=line.orderid, sku=line.sku, qty=line.qty
+                )
+            )
 
     def __hash__(self) -> int:
         return hash(self.sku)
@@ -44,6 +55,9 @@ class Batch(Entity):
     purchased_quantity: int
     allocations: set[OrderLine] = field(default_factory=set)
 
+    def __repr__(self):
+        return f"<Batch {self.reference}>"
+
     def __eq__(self, other):
         if not isinstance(other, Batch):
             return False
@@ -63,9 +77,8 @@ class Batch(Entity):
         if self.can_allocate(line):
             self.allocations.add(line)
 
-    def deallocate(self, line: OrderLine):
-        if line in self.allocations:
-            self.allocations.remove(line)
+    def deallocate_one(self) -> OrderLine:
+        return self.allocations.pop()
 
     @property
     def allocated_quantity(self) -> int:

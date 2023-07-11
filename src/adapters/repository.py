@@ -7,19 +7,23 @@ from sqlalchemy.orm import Session
 
 from src.domain import model
 
+from . import orm
+
 ModelType = TypeVar("ModelType")
 
 
-class RepositoryProtocol(Protocol[ModelType]):
+class Repository(Protocol[ModelType]):
     def add(self, product: ModelType) -> ModelType:
         ...
 
     def get(self, sku: str) -> ModelType | None:
         ...
 
+    def get_by_batchref(self, batchref: str) -> ModelType | None:
+        ...
 
-# TODO: Make generic
-class SqlAlchemyRepository(RepositoryProtocol):
+
+class SqlAlchemyRepository(Repository[model.Product]):
     def __init__(self, session: Session):
         self.session = session
 
@@ -31,15 +35,19 @@ class SqlAlchemyRepository(RepositoryProtocol):
         query = select(model.Product).where(model.Product.sku == sku)  # type: ignore[arg-type]
         return self.session.scalar(query)
 
-    def list(self) -> list[model.Product]:
-        query = select(model.Product)
-        return list(self.session.execute(query).scalars().all())
+    def get_by_batchref(self, batchref: str) -> model.Product | None:
+        query = (
+            select(model.Product)
+            .join(model.Batch)
+            .where(orm.batches.c.reference == batchref)
+        )
+        return self.session.scalar(query)
 
 
-class TrackingRepository(RepositoryProtocol[model.Product]):
+class TrackingRepository:
     seen: set[model.Product]
 
-    def __init__(self, repo: RepositoryProtocol):
+    def __init__(self, repo: Repository[model.Product]):
         self.seen: set[model.Product] = set()
         self._repo = repo
 
@@ -50,6 +58,12 @@ class TrackingRepository(RepositoryProtocol[model.Product]):
 
     def get(self, sku) -> model.Product | None:
         product = self._repo.get(sku)
+        if product:
+            self.seen.add(product)
+        return product
+
+    def get_by_batchref(self, batchref) -> model.Product | None:
+        product = self._repo.get_by_batchref(batchref)
         if product:
             self.seen.add(product)
         return product

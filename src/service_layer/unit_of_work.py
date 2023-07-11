@@ -1,24 +1,18 @@
 from __future__ import annotations
 
-from typing import Protocol, TypeVar
+from collections.abc import Iterable
+from typing import Protocol, Self, TypeVar
 
 from sqlalchemy.orm.session import Session
 
 from src.adapters import repository
+from src.domain import events
 
-from . import messagebus
-
-REPO_TYPE = TypeVar("REPO_TYPE", bound=repository.RepositoryProtocol)
+REPO_TYPE = TypeVar("REPO_TYPE", bound=repository.Repository)
 
 
-class UnitOfWorkProtocol(Protocol[REPO_TYPE]):
+class UnitOfWorkStrategy(Protocol[REPO_TYPE]):
     products: REPO_TYPE
-
-    def __enter__(self) -> UnitOfWorkProtocol:
-        ...
-
-    def __exit__(self, *args) -> None:
-        ...
 
     def commit(self) -> None:
         ...
@@ -27,19 +21,10 @@ class UnitOfWorkProtocol(Protocol[REPO_TYPE]):
         ...
 
 
-class SqlAlchemyUnitOfWork(UnitOfWorkProtocol):
-    def __init__(self, session: Session, repo: repository.RepositoryProtocol) -> None:
+class SqlAlchemyUnitOfWork(UnitOfWorkStrategy[REPO_TYPE]):
+    def __init__(self, session: Session, repo: REPO_TYPE) -> None:
         self.session = session
-        self.products = repo
-
-    def __enter__(self) -> SqlAlchemyUnitOfWork:
-        return self
-
-    def __exit__(self, *args) -> None:
-        self.rollback()
-        # super().__exit__(*args)  # don't call methods on protocol
-        # Session is closed insession factory
-        # self.session.close()
+        self.products = repo  # remove from here and leave in UnitOfWork?
 
     def commit(self) -> None:
         self.session.commit()
@@ -48,26 +33,24 @@ class SqlAlchemyUnitOfWork(UnitOfWorkProtocol):
         self.session.rollback()
 
 
-class EventPublishingUnitOfWork(UnitOfWorkProtocol[repository.TrackingRepository]):
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self.uow = uow
+class UnitOfWork:
+    def __init__(self, uow: UnitOfWorkStrategy[repository.TrackingRepository]) -> None:
+        self._uow = uow
         self.products = uow.products
 
-    def __enter__(self) -> EventPublishingUnitOfWork:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args) -> None:
         self.rollback()
 
     def commit(self) -> None:
-        self.uow.commit()
-        self.publish_events()
-
-    def publish_events(self) -> None:
-        for product in self.products.seen:
-            while product.events:
-                event = product.events.pop(0)
-                messagebus.handle(event)
+        self._uow.commit()
 
     def rollback(self) -> None:
-        self.uow.rollback()
+        self._uow.rollback()
+
+    def collect_new_events(self) -> Iterable[events.Event]:
+        for product in self.products.seen:
+            while product.events:
+                yield product.events.pop(0)
