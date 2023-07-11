@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from src.adapters import repository
-from src.domain import events, model
+from src.domain import commands, model
 from src.service_layer import handlers, messagebus, unit_of_work
 
 
@@ -43,7 +43,7 @@ class TestAddBatch:
     def test_for_new_product(self):
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
-            event=events.BatchCreated(
+            message=commands.CreateBatch(
                 ref="b1", sku="CRUNCHY-ARMCHAIR", qty=100, eta=None
             ),
             uow=uow,
@@ -54,42 +54,44 @@ class TestAddBatch:
     def test_for_existing_product(self):
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
-            events.BatchCreated(ref="b1", sku="GARISH-RUG", qty=100, eta=None), uow
+            commands.CreateBatch(ref="b1", sku="GARISH-RUG", qty=100, eta=None), uow
         )
         messagebus.handle(
-            events.BatchCreated(ref="b2", sku="GARISH-RUG", qty=99, eta=None), uow
+            commands.CreateBatch(ref="b2", sku="GARISH-RUG", qty=99, eta=None), uow
         )
-        assert "b2" in [b.reference for b in uow.products.get("GARISH-RUG").batches]
+        assert "b2" in [b.reference for b in uow.products.get("GARISH-RUG").batches]  # type: ignore[union-attr]
 
 
 class TestAllocate:
     def test_returns_allocation(self):
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
-            events.BatchCreated(
+            commands.CreateBatch(
                 ref="batch1", sku="COMPLICATED-LAMP", qty=100, eta=None
             ),
             uow,
         )
         results = messagebus.handle(
-            events.AllocationRequired(orderid="o1", sku="COMPLICATED-LAMP", qty=10), uow
+            commands.Allocate(orderid="o1", sku="COMPLICATED-LAMP", qty=10),
+            uow,
         )
         assert results.pop(0) == "batch1"
 
     def test_errors_for_invalid_sku(self):
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
-            events.BatchCreated(ref="b1", sku="AREALSKU", qty=100, eta=None), uow
+            commands.CreateBatch(ref="b1", sku="AREALSKU", qty=100, eta=None), uow
         )
 
         with pytest.raises(handlers.InvalidSku, match="Invalid sku NONEXISTENTSKU"):
             messagebus.handle(
-                events.AllocationRequired(orderid="o1", sku="NONEXISTENTSKU", qty=10),
+                commands.Allocate(orderid="o1", sku="NONEXISTENTSKU", qty=10),
                 uow,
             )
 
     def test_commits(self):
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
-            events.BatchCreated(ref="b1", sku="OMINOUS-MIRROR", qty=100, eta=None), uow
+            commands.CreateBatch(ref="b1", sku="OMINOUS-MIRROR", qty=100, eta=None),
+            uow,
         )

@@ -6,7 +6,7 @@ from typing import Protocol, Self, TypeVar
 from sqlalchemy.orm.session import Session
 
 from src.adapters import repository
-from src.domain import events
+from src.domain import commands, events
 
 REPO_TYPE = TypeVar("REPO_TYPE", bound=repository.Repository)
 
@@ -50,7 +50,7 @@ class UnitOfWork:
     def rollback(self) -> None:
         self._uow.rollback()
 
-    def collect_new_events(self) -> Iterable[events.Event]:
+    def collect_new_events(self) -> Iterable[commands.Command | events.Event]:
         for product in self.products.seen:
-            while product.events:
-                yield product.events.pop(0)
+            while product.messages:
+                yield product.messages.pop(0)

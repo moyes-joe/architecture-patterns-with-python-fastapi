@@ -85,7 +85,7 @@ def test_raises_out_of_stock_exception_if_cannot_allocate():
     product.allocate(OrderLine(orderid="order1", sku="SMALL-FORK", qty=10))
 
     allocation = product.allocate(OrderLine(orderid="order2", sku="SMALL-FORK", qty=1))
-    assert product.events[-1] == events.OutOfStock(sku="SMALL-FORK")
+    assert product.messages[-1] == events.OutOfStock(sku="SMALL-FORK")
     assert allocation is None
 
 

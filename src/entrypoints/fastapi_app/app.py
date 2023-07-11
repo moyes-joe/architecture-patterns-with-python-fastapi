@@ -5,7 +5,7 @@ from functools import cache
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 
 from src.config import config
-from src.domain import events
+from src.domain import commands
 from src.service_layer import handlers, messagebus, unit_of_work
 
 from .deps import get_unit_of_work
@@ -28,20 +28,20 @@ def startup_event() -> None:
 
 @router.post("/batches", status_code=201)
 def add_batch_endpoint(
-    batch_create: events.BatchCreated,
+    batch_create: commands.CreateBatch,
     unit_of_work: unit_of_work.UnitOfWork = Depends(get_unit_of_work),  # noqa: B008
 ) -> dict[str, str]:
-    messagebus.handle(event=batch_create, uow=unit_of_work)
+    messagebus.handle(message=batch_create, uow=unit_of_work)
     return {"message": "OK"}
 
 
 @router.post("/allocations", status_code=201)
 def allocate_endpoint(
-    allocation_required: events.AllocationRequired,
+    allocation_required: commands.Allocate,
     unit_of_work: unit_of_work.UnitOfWork = Depends(get_unit_of_work),  # noqa: B008
 ) -> BatchRef:
     try:
-        results = messagebus.handle(event=allocation_required, uow=unit_of_work)
+        results = messagebus.handle(message=allocation_required, uow=unit_of_work)
         batchref = results.pop(0)
     except (handlers.InvalidSku, handlers.InvalidRef) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

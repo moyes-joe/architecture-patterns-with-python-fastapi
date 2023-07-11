@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+from . import commands
 from . import events as domain_events
 from .entity import Entity
 from .value_object import ValueObject
@@ -13,7 +14,7 @@ class Product:
     sku: str
     batches: list[Batch]
     version_number: int = 0
-    events: list[domain_events.Event] = field(default_factory=list)
+    messages: list[domain_events.Event | commands.Command] = field(default_factory=list)
 
     def allocate(self, line: OrderLine) -> str | None:
         try:
@@ -22,7 +23,7 @@ class Product:
             self.version_number += 1
             return batch.reference
         except StopIteration:
-            self.events.append(domain_events.OutOfStock(sku=line.sku))
+            self.messages.append(domain_events.OutOfStock(sku=line.sku))
             return None
 
     def change_batch_quantity(self, ref: str, qty: int):
@@ -30,10 +31,8 @@ class Product:
         batch.purchased_quantity = qty
         while batch.available_quantity < 0:
             line = batch.deallocate_one()
-            self.events.append(
-                domain_events.AllocationRequired(
-                    orderid=line.orderid, sku=line.sku, qty=line.qty
-                )
+            self.messages.append(
+                commands.Allocate(orderid=line.orderid, sku=line.sku, qty=line.qty)
             )
 
     def __hash__(self) -> int:

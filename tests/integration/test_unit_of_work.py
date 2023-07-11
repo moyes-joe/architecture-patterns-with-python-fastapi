@@ -82,7 +82,7 @@ def test_uow_can_retrieve_a_batch_and_allocate_to_it(
     with uow:
         product = uow.products.get(sku="HIPSTER-WORKBENCH")
         line = model.OrderLine(orderid="o1", sku="HIPSTER-WORKBENCH", qty=10)
-        product.allocate(line)
+        product.allocate(line)  # type: ignore[union-attr]
         uow.commit()
 
     batchref = get_allocated_batch_ref(
@@ -146,8 +146,8 @@ def emmulate_database_race(
             with uow2:
                 product = uow.products.get(sku=sku)
                 product2 = uow2.products.get(sku=sku)
-                product.allocate(line)
-                product2.allocate(line2)
+                product.allocate(line)  # type: ignore[union-attr]
+                product2.allocate(line2)  # type: ignore[union-attr]
                 uow.commit()
                 uow2.commit()
     except Exception as e:
@@ -195,7 +195,7 @@ def test_concurrent_updates_to_version_are_not_allowed(
         ),
         dict(sku=sku),
     )
-    assert orders.rowcount == 1
+    assert orders.rowcount == 1  # type: ignore[attr-defined]
     new_session = postgres_session_factory()
     repo = repository.SqlAlchemyRepository(session=new_session)
     tracking_repo = repository.TrackingRepository(repo)
@@ -204,4 +204,4 @@ def test_concurrent_updates_to_version_are_not_allowed(
     )
     uow = unit_of_work.UnitOfWork(uow=sql_alchemy_uow)
     with uow:
-        uow._uow.session.execute(text("select 1"))
+        uow._uow.session.execute(text("select 1"))  # type: ignore[attr-defined]
