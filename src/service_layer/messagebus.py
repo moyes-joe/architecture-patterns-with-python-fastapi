@@ -75,6 +75,7 @@ class CommandHandler(Protocol):
 
 
 EVENT_HANDLERS: dict[type[events.Event], list[EventHandler]] = {
+    events.Allocated: [handlers.publish_allocated_event],
     events.OutOfStock: [handlers.send_out_of_stock_notification],
 }
 COMMAND_HANDLERS: dict[type[commands.Command], CommandHandler] = {

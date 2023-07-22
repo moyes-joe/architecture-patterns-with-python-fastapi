@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from src.config import config
 
 from ..random_refs import random_batchref, random_orderid, random_sku
+from .api_client import post_to_add_batch
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -13,16 +14,6 @@ def clear_mappers() -> None:
     from sqlalchemy.orm import clear_mappers
 
     clear_mappers()
-
-
-def post_to_add_batch(
-    client: TestClient, ref: str, sku: str, qty: int, eta: str | None
-):
-    url = config.API_V1_STR
-    r = client.post(
-        f"{url}/batches", json={"ref": ref, "sku": sku, "qty": qty, "eta": eta}
-    )
-    assert r.status_code == 201
 
 
 def test_happy_path_returns_201_and_allocated_batch(

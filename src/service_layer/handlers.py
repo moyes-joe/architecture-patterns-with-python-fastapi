@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from src.adapters import email
+from src.adapters import email, redis_event_publisher
 from src.domain import commands, events, model
 from src.domain.model import OrderLine
 
@@ -53,6 +53,7 @@ def change_batch_quantity(
     cmd: commands.ChangeBatchQuantity,
     uow: unit_of_work.UnitOfWork,
 ) -> None:
+    print("handling command to change batch quantity", cmd)
     with uow:
         product = uow.products.get_by_batchref(batchref=cmd.ref)
         if product is None:
@@ -69,3 +70,10 @@ def send_out_of_stock_notification(
         "stock@made.com",
         f"Out of stock for {event.sku}",
     )
+
+
+def publish_allocated_event(
+    event: events.Allocated,
+    uow: unit_of_work.UnitOfWork,
+):
+    redis_event_publisher.publish("line_allocated", event)

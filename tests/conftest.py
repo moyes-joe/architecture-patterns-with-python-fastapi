@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 from collections.abc import Callable, Generator
 
 import pytest
+import redis
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import clear_mappers, sessionmaker
+from tenacity import retry, stop_after_delay
 
 from src.adapters.orm import mapper_registry, start_mappers
 from src.config import config
@@ -76,3 +80,21 @@ def postgres_client(postgres_db: Engine) -> Generator[TestClient, None, None]:
         yield c
 
     app.dependency_overrides.clear()
+
+
+@retry(stop=stop_after_delay(10))
+def wait_for_redis_to_come_up():
+    r = redis.Redis(**config.get_redis_host_and_port())  # type: ignore
+    return r.ping()
+
+
+@pytest.fixture
+def restart_redis_pubsub():
+    wait_for_redis_to_come_up()
+    if not shutil.which("docker-compose"):
+        print("skipping restart, assumes running in container")
+        return
+    subprocess.run(
+        ["docker-compose", "restart", "-t", "0", "redis_pubsub"],
+        check=True,
+    )
