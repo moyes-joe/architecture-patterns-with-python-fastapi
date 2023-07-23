@@ -12,15 +12,16 @@ services:
     environment:
       - POSTGRES_URI=postgresql://user:password@db:5432/app_db
       - REDIS_HOST=redis
+      - EMAIL_HOST=mailhog
       - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - ./:/usr/src/app
 
     command: python -m src.entrypoints.redis_event_consumer
 
-  web:
+  api:
     build: .
-    command: uvicorn src.entrypoints.fastapi_app.app:app --reload --workers 4 --host 0.0.0.0 --port 8000
+    command: uvicorn src.entrypoints.fastapi_app:app --reload --workers 4 --host 0.0.0.0 --port 8000
     volumes:
       - ./:/usr/src/app
     ports:
@@ -28,6 +29,8 @@ services:
     environment:
       - POSTGRES_URI=postgresql://user:password@db:5432/app_db
       - REDIS_HOST=redis
+      - EMAIL_HOST=mailhog
+      - PYTHONDONTWRITEBYTECODE=1
     depends_on:
       - db
 
@@ -44,3 +47,9 @@ services:
     image: redis:alpine
     ports:
       - "63791:6379"
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "11025:1025"
+      - "18025:8025"

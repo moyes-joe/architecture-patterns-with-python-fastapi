@@ -24,7 +24,7 @@ class Repository(Protocol[ModelType]):
 
 
 class SqlAlchemyRepository(Repository[model.Product]):
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
     def add(self, product: model.Product) -> model.Product:
@@ -44,10 +44,10 @@ class SqlAlchemyRepository(Repository[model.Product]):
         return self.session.scalar(query)
 
 
-class TrackingRepository:
+class TrackingRepository(Repository[model.Product]):
     seen: set[model.Product]
 
-    def __init__(self, repo: Repository[model.Product]):
+    def __init__(self, repo: Repository[model.Product]) -> None:
         self.seen: set[model.Product] = set()
         self._repo = repo
 

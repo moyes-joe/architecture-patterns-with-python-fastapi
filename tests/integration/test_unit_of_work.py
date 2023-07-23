@@ -8,11 +8,13 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from src.adapters import repository
+from src.adapters import unit_of_work_strategy
 from src.domain import model
 from src.service_layer import unit_of_work
 
 from ..random_refs import random_batchref, random_orderid, random_sku
+
+pytestmark = pytest.mark.usefixtures("mappers")
 
 
 def insert_batch(
@@ -109,16 +111,12 @@ def emmulate_database_race(
     order1, order2 = random_orderid("1"), random_orderid("2")
     line = model.OrderLine(orderid=order1, sku=sku, qty=10)
     line2 = model.OrderLine(orderid=order2, sku=sku, qty=10)
-    repo = repository.SqlAlchemyRepository(session=session_1)
-    tracking_repo = repository.TrackingRepository(repo)
-    sql_alchemy_uow = unit_of_work.SqlAlchemyUnitOfWork(
-        session=session_1, repo=tracking_repo
+    sql_alchemy_uow = unit_of_work_strategy.SqlAlchemyUnitOfWork(
+        session_factory=lambda: session_1,
     )
     uow = unit_of_work.UnitOfWork(uow=sql_alchemy_uow)
-    repo2 = repository.SqlAlchemyRepository(session=session_2)
-    tracking_repo2 = repository.TrackingRepository(repo2)
-    sql_alchemy_uow2 = unit_of_work.SqlAlchemyUnitOfWork(
-        session=session_2, repo=tracking_repo2
+    sql_alchemy_uow2 = unit_of_work_strategy.SqlAlchemyUnitOfWork(
+        session_factory=lambda: session_2
     )
     uow2 = unit_of_work.UnitOfWork(uow=sql_alchemy_uow2)
     try:
@@ -176,12 +174,8 @@ def test_concurrent_updates_to_version_are_not_allowed(
         dict(sku=sku),
     )
     assert orders.rowcount == 1  # type: ignore[attr-defined]
-    new_session = postgres_session_factory()
-    repo = repository.SqlAlchemyRepository(session=new_session)
-    tracking_repo = repository.TrackingRepository(repo)
-    sql_alchemy_uow = unit_of_work.SqlAlchemyUnitOfWork(
-        session=session_1, repo=tracking_repo
+    sql_alchemy_uow = unit_of_work_strategy.SqlAlchemyUnitOfWork(
+        session_factory=postgres_session_factory
     )
-    uow = unit_of_work.UnitOfWork(uow=sql_alchemy_uow)
-    with uow:
-        uow._uow.session.execute(text("select 1"))  # type: ignore[attr-defined]
+    with unit_of_work.UnitOfWork(uow=sql_alchemy_uow) as uow:
+        uow.execute(text("select 1"))  # type: ignore[attr-defined]

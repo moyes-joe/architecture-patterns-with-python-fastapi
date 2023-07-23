@@ -5,7 +5,7 @@ from collections.abc import Callable, Generator
 import pytest
 from sqlalchemy.orm import Session
 
-from src.adapters import repository
+from src.adapters import unit_of_work_strategy
 from src.service_layer import unit_of_work
 
 
@@ -14,10 +14,8 @@ def uow_factory(
     session: Session,
 ) -> Generator[Callable[[], unit_of_work.UnitOfWork], None, None]:
     def get_uow() -> unit_of_work.UnitOfWork:
-        repo = repository.SqlAlchemyRepository(session)
-        tracking_repo = repository.TrackingRepository(repo)
-        sql_alchemy_uow = unit_of_work.SqlAlchemyUnitOfWork(
-            session=session, repo=tracking_repo
+        sql_alchemy_uow = unit_of_work_strategy.SqlAlchemyUnitOfWork(
+            session_factory=lambda: session
         )
         return unit_of_work.UnitOfWork(uow=sql_alchemy_uow)
 

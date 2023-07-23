@@ -5,6 +5,8 @@ import json
 from fastapi.testclient import TestClient
 from tenacity import Retrying, stop_after_delay
 
+from src.domain import commands
+
 from ..random_refs import random_batchref, random_orderid, random_sku
 from . import api_client, redis_client
 
@@ -26,14 +28,14 @@ def test_change_batch_quantity_leading_to_reallocation(
     response = api_client.post_to_allocate(
         client=postgres_client, orderid=orderid, sku=sku, qty=10
     )
-    assert response.json()["batchref"] == earlier_batch
-
+    assert response.status_code == 202
+    response = api_client.get_allocation(client=postgres_client, orderid=orderid)
+    assert response.json()[0]["batchref"] == earlier_batch
     subscription = redis_client.subscribe_to("line_allocated")
-
     # change quantity on allocated batch so it's less than our order
     redis_client.publish_message(
         "change_batch_quantity",
-        {"ref": earlier_batch, "qty": 5},
+        commands.ChangeBatchQuantity(ref=earlier_batch, qty=5),
     )
 
     # wait until we see a message saying the order has been reallocated

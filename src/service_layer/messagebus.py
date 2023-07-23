@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Protocol
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from src.domain import commands, events
-
-from . import handlers
 
 if TYPE_CHECKING:
     from . import unit_of_work
@@ -15,78 +14,44 @@ logger = logging.getLogger(__name__)
 Message = commands.Command | events.Event
 
 
-def handle(
-    message: Message,
-    uow: unit_of_work.UnitOfWork,
-):
-    results = []
-    queue = [message]
-    while queue:
-        message = queue.pop(0)
-        if isinstance(message, events.Event):
-            handle_event(message, queue, uow)
-        elif isinstance(message, commands.Command):
-            cmd_result = handle_command(message, queue, uow)
-            results.append(cmd_result)
-        else:
-            raise Exception(f"{message} was not an Event or Command")
-    return results
+class MessageBus:
+    def __init__(
+        self,
+        uow: unit_of_work.UnitOfWork,
+        event_handlers: dict[type[events.Event], list[Callable]],
+        command_handlers: dict[type[commands.Command], Callable],
+    ) -> None:
+        self.uow = uow
+        self.event_handlers = event_handlers
+        self.command_handlers = command_handlers
 
+    def handle(self, message: Message) -> None:
+        self.queue = [message]
+        while self.queue:
+            message = self.queue.pop(0)
+            if isinstance(message, events.Event):
+                self.handle_event(message)
+            elif isinstance(message, commands.Command):
+                self.handle_command(message)
+            else:
+                raise Exception(f"{message} was not an Event or Command")
 
-def handle_event(
-    event: events.Event,
-    queue: list[Message],
-    uow: unit_of_work.UnitOfWork,
-) -> None:
-    for handler in EVENT_HANDLERS[type(event)]:
+    def handle_event(self, event: events.Event) -> None:
+        for handler in self.event_handlers[type(event)]:
+            try:
+                logger.debug("handling event %s with handler %s", event, handler)
+                handler(event)
+                self.queue.extend(self.uow.collect_new_events())
+            except Exception:
+                logger.exception("Exception handling event %s", event)
+                continue
+
+    def handle_command(self, command: commands.Command) -> None:
+        logger.debug("handling command %s", command)
         try:
-            logger.debug("handling event %s with handler %s", event, handler)
-            handler(event=event, uow=uow)
-            queue.extend(uow.collect_new_events())
+            handler = self.command_handlers[type(command)]
+            handler(command)
+            self.queue.extend(self.uow.collect_new_events())
         except Exception:
-            logger.exception("Exception handling event %s", event)
-            continue
-
-
-def handle_command(
-    command: commands.Command,
-    queue: list[Message],
-    uow: unit_of_work.UnitOfWork,
-):
-    logger.debug("handling command %s", command)
-    try:
-        handler = COMMAND_HANDLERS[type(command)]
-        result = handler(cmd=command, uow=uow)
-        queue.extend(uow.collect_new_events())
-        return result
-    except Exception:
-        logger.exception("Exception handling command %s", command)
-        raise
-
-
-class EventHandler(Protocol):
-    def __call__(self, event: Any, uow: unit_of_work.UnitOfWork) -> Any:
-        ...
-
-
-class CommandHandler(Protocol):
-    def __call__(self, cmd: Any, uow: unit_of_work.UnitOfWork) -> Any:
-        ...
-
-
-EVENT_HANDLERS: dict[type[events.Event], list[EventHandler]] = {
-    events.Allocated: [
-        handlers.publish_allocated_event,
-        handlers.add_allocation_to_read_model,
-    ],
-    events.Deallocated: [
-        handlers.remove_allocation_from_read_model,
-        handlers.reallocate,
-    ],
-    events.OutOfStock: [handlers.send_out_of_stock_notification],
-}
-COMMAND_HANDLERS: dict[type[commands.Command], CommandHandler] = {
-    commands.Allocate: handlers.allocate,
-    commands.CreateBatch: handlers.add_batch,
-    commands.ChangeBatchQuantity: handlers.change_batch_quantity,
-}
+            logger.exception("Exception handling command %s", command)
+            raise

@@ -13,12 +13,11 @@ from tenacity import retry, stop_after_delay
 
 from src.adapters.orm import mapper_registry, start_mappers
 from src.config import config
-from src.entrypoints.fastapi_app.app import app
-from src.entrypoints.fastapi_app.deps import get_engine
+from src.entrypoints.fastapi_app import app
 
 
-@pytest.fixture(scope="session", autouse=True)
-def start_clear_mappers() -> Generator[None, None, None]:
+@pytest.fixture
+def mappers() -> Generator[None, None, None]:
     start_mappers()
     yield
     clear_mappers()
@@ -43,12 +42,8 @@ def session(session_factory) -> Generator[sessionmaker, None, None]:
 
 @pytest.fixture
 def client(in_memory_engine: Engine) -> Generator[TestClient, None, None]:
-    app.dependency_overrides[get_engine] = lambda: in_memory_engine
-
     with TestClient(app) as c:
         yield c
-
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="session")
@@ -74,22 +69,22 @@ def postgres_session(
 
 @pytest.fixture
 def postgres_client(postgres_db: Engine) -> Generator[TestClient, None, None]:
-    app.dependency_overrides[get_engine] = lambda: postgres_db
+    # app.dependency_overrides[get_engine] = lambda: postgres_db
 
     with TestClient(app) as c:
         yield c
 
-    app.dependency_overrides.clear()
+    # app.dependency_overrides.clear()
 
 
 @retry(stop=stop_after_delay(10))
-def wait_for_redis_to_come_up():
+def wait_for_redis_to_come_up() -> bool:
     r = redis.Redis(**config.get_redis_host_and_port())  # type: ignore
     return r.ping()
 
 
 @pytest.fixture
-def restart_redis_pubsub():
+def restart_redis_pubsub() -> None:
     wait_for_redis_to_come_up()
     if not shutil.which("docker-compose"):
         print("skipping restart, assumes running in container")

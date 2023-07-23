@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy.orm import Session
 
 from src.adapters import repository
 from src.domain import model
+
+pytestmark = pytest.mark.usefixtures("mappers")
 
 
 def test_get_by_batchref(session: Session) -> None:

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from src.config import config
 
 from ..random_refs import random_batchref, random_orderid, random_sku
-from .api_client import post_to_add_batch
+from .api_client import get_allocation, post_to_add_batch
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -16,9 +16,10 @@ def clear_mappers() -> None:
     clear_mappers()
 
 
-def test_happy_path_returns_201_and_allocated_batch(
+def test_happy_path_returns_202_and_allocated_batch(
     postgres_client: TestClient,
 ) -> None:
+    orderid = random_orderid()
     sku, othersku = random_sku(), random_sku("other")
     earlybatch = random_batchref("1")
     laterbatch = random_batchref("2")
@@ -33,12 +34,16 @@ def test_happy_path_returns_201_and_allocated_batch(
         client=postgres_client, ref=otherbatch, sku=othersku, qty=100, eta=None
     )
 
-    data = {"orderid": random_orderid(), "sku": sku, "qty": 3}
+    data = {"orderid": orderid, "sku": sku, "qty": 3}
     url = config.API_V1_STR
     response = postgres_client.post(f"{url}/allocations", json=data)
 
-    assert response.status_code == 201
-    assert response.json()["batchref"] == earlybatch
+    assert response.status_code == 202
+    r = get_allocation(postgres_client, orderid)
+    assert r.status_code == 200
+    assert r.json() == [
+        {"orderid": orderid, "sku": sku, "batchref": earlybatch},
+    ]
 
 
 def test_unhappy_path_returns_400_and_error_message(

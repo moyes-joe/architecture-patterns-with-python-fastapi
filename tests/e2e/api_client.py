@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import Response
 from fastapi.testclient import TestClient
+from httpx import Response
 
 from src.config import config
 
@@ -29,5 +29,10 @@ def post_to_allocate(
         },
     )
     if expect_success:
-        assert r.status_code == 201
+        assert r.status_code == 202
     return r
+
+
+def get_allocation(client: TestClient, orderid: str) -> Response:
+    url = config.API_V1_STR
+    return client.get(f"{url}/allocations/{orderid}")
