@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Protocol, Self, TypeVar
+from typing import Any, Protocol, Self, TypeVar
 
 from sqlalchemy.orm.session import Session
 
@@ -20,6 +20,9 @@ class UnitOfWorkStrategy(Protocol[REPO_TYPE]):
     def rollback(self) -> None:
         ...
 
+    def execute(self, *args, **kwargs) -> Any:
+        ...
+
 
 class SqlAlchemyUnitOfWork(UnitOfWorkStrategy[REPO_TYPE]):
     def __init__(self, session: Session, repo: REPO_TYPE) -> None:
@@ -31,6 +34,9 @@ class SqlAlchemyUnitOfWork(UnitOfWorkStrategy[REPO_TYPE]):
 
     def rollback(self) -> None:
         self.session.rollback()
+
+    def execute(self, *args, **kwargs) -> Any:
+        return self.session.execute(*args, **kwargs)
 
 
 class UnitOfWork:
@@ -49,6 +55,9 @@ class UnitOfWork:
 
     def rollback(self) -> None:
         self._uow.rollback()
+
+    def execute(self, *args, **kwargs) -> Any:
+        return self._uow.execute(*args, **kwargs)
 
     def collect_new_events(self) -> Iterable[commands.Command | events.Event]:
         for product in self.products.seen:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from src.adapters import repository
-from src.domain import commands, model
+from src.domain import commands, events, model
 from src.service_layer import handlers, messagebus, unit_of_work
 
 
@@ -40,7 +40,7 @@ class FakeUnitOfWorkStrategy(
 
 
 class TestAddBatch:
-    def test_for_new_product(self):
+    def test_for_new_product(self) -> None:
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
             message=commands.CreateBatch(
@@ -51,7 +51,7 @@ class TestAddBatch:
         assert uow.products.get(sku="CRUNCHY-ARMCHAIR") is not None
         assert uow._uow.committed  # type: ignore[union-attr]
 
-    def test_for_existing_product(self):
+    def test_for_existing_product(self) -> None:
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
             commands.CreateBatch(ref="b1", sku="GARISH-RUG", qty=100, eta=None), uow
@@ -63,7 +63,7 @@ class TestAddBatch:
 
 
 class TestAllocate:
-    def test_returns_allocation(self):
+    def test_returns_allocation(self) -> None:
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
             commands.CreateBatch(
@@ -75,9 +75,9 @@ class TestAllocate:
             commands.Allocate(orderid="o1", sku="COMPLICATED-LAMP", qty=10),
             uow,
         )
-        assert results.pop(0) == "batch1"
+        assert results.pop(0) == events.AllocatedBatchRef(batchref="batch1")
 
-    def test_errors_for_invalid_sku(self):
+    def test_errors_for_invalid_sku(self) -> None:
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
             commands.CreateBatch(ref="b1", sku="AREALSKU", qty=100, eta=None), uow
@@ -89,7 +89,7 @@ class TestAllocate:
                 uow,
             )
 
-    def test_commits(self):
+    def test_commits(self) -> None:
         uow = unit_of_work.UnitOfWork(FakeUnitOfWorkStrategy())
         messagebus.handle(
             commands.CreateBatch(ref="b1", sku="OMINOUS-MIRROR", qty=100, eta=None),

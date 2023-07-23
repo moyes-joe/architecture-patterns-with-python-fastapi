@@ -18,7 +18,7 @@ def clear_mappers() -> None:
 
 def test_happy_path_returns_201_and_allocated_batch(
     postgres_client: TestClient,
-):
+) -> None:
     sku, othersku = random_sku(), random_sku("other")
     earlybatch = random_batchref("1")
     laterbatch = random_batchref("2")
@@ -41,7 +41,9 @@ def test_happy_path_returns_201_and_allocated_batch(
     assert response.json()["batchref"] == earlybatch
 
 
-def test_unhappy_path_returns_400_and_error_message(postgres_client: TestClient):
+def test_unhappy_path_returns_400_and_error_message(
+    postgres_client: TestClient,
+) -> None:
     unknown_sku, orderid = random_sku(), random_orderid()
     data = {"orderid": orderid, "sku": unknown_sku, "qty": 20}
     url = config.API_V1_STR

@@ -37,7 +37,7 @@ def handle_event(
     event: events.Event,
     queue: list[Message],
     uow: unit_of_work.UnitOfWork,
-):
+) -> None:
     for handler in EVENT_HANDLERS[type(event)]:
         try:
             logger.debug("handling event %s with handler %s", event, handler)
@@ -75,7 +75,14 @@ class CommandHandler(Protocol):
 
 
 EVENT_HANDLERS: dict[type[events.Event], list[EventHandler]] = {
-    events.Allocated: [handlers.publish_allocated_event],
+    events.Allocated: [
+        handlers.publish_allocated_event,
+        handlers.add_allocation_to_read_model,
+    ],
+    events.Deallocated: [
+        handlers.remove_allocation_from_read_model,
+        handlers.reallocate,
+    ],
     events.OutOfStock: [handlers.send_out_of_stock_notification],
 }
 COMMAND_HANDLERS: dict[type[commands.Command], CommandHandler] = {

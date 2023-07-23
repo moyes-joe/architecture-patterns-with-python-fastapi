@@ -9,6 +9,12 @@ class Command(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 
+class Allocate(Command):
+    orderid: str
+    sku: str
+    qty: int
+
+
 class CreateBatch(Command):
     ref: str
     sku: str
@@ -18,10 +24,4 @@ class CreateBatch(Command):
 
 class ChangeBatchQuantity(Command):
     ref: str
-    qty: int
-
-
-class Allocate(Command):
-    orderid: str
-    sku: str
     qty: int

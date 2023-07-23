@@ -16,7 +16,7 @@ class Product:
     version_number: int = 0
     messages: list[domain_events.Event | commands.Command] = field(default_factory=list)
 
-    def allocate(self, line: OrderLine) -> str | None:
+    def allocate(self, line: OrderLine) -> domain_events.AllocatedBatchRef | None:
         try:
             batch = next(b for b in sorted(self.batches) if b.can_allocate(line))
             batch.allocate(line)
@@ -29,7 +29,7 @@ class Product:
                     batchref=batch.reference,
                 )
             )
-            return batch.reference
+            return domain_events.AllocatedBatchRef(batchref=batch.reference)
         except StopIteration:
             self.messages.append(domain_events.OutOfStock(sku=line.sku))
             return None
@@ -40,7 +40,9 @@ class Product:
         while batch.available_quantity < 0:
             line = batch.deallocate_one()
             self.messages.append(
-                commands.Allocate(orderid=line.orderid, sku=line.sku, qty=line.qty)
+                domain_events.Deallocated(
+                    orderid=line.orderid, sku=line.sku, qty=line.qty
+                )
             )
 
     def __hash__(self) -> int:

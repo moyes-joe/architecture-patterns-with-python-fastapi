@@ -10,7 +10,7 @@ tomorrow = today + timedelta(days=1)
 later = tomorrow + timedelta(days=10)
 
 
-def test_prefers_current_stock_batches_to_shipments():
+def test_prefers_current_stock_batches_to_shipments() -> None:
     in_stock_batch = Batch(
         reference="in-stock-batch", sku="RETRO-CLOCK", purchased_quantity=100, eta=None
     )
@@ -29,7 +29,7 @@ def test_prefers_current_stock_batches_to_shipments():
     assert shipment_batch.available_quantity == 100
 
 
-def test_prefers_earlier_batches():
+def test_prefers_earlier_batches() -> None:
     earliest = Batch(
         reference="speedy-batch",
         sku="MINIMALIST-SPOON",
@@ -58,7 +58,7 @@ def test_prefers_earlier_batches():
     assert latest.available_quantity == 100
 
 
-def test_returns_allocated_batch_ref():
+def test_returns_allocated_batch_ref() -> None:
     in_stock_batch = Batch(
         reference="in-stock-batch-ref",
         sku="HIGHBROW-POSTER",
@@ -74,10 +74,10 @@ def test_returns_allocated_batch_ref():
     line = OrderLine(orderid="oref", sku="HIGHBROW-POSTER", qty=10)
     product = Product(sku="HIGHBROW-POSTER", batches=[in_stock_batch, shipment_batch])
     allocation = product.allocate(line)
-    assert allocation == in_stock_batch.reference
+    assert allocation == events.AllocatedBatchRef(batchref=in_stock_batch.reference)
 
 
-def test_raises_out_of_stock_exception_if_cannot_allocate():
+def test_raises_out_of_stock_exception_if_cannot_allocate() -> None:
     batch = Batch(
         reference="batch1", sku="SMALL-FORK", purchased_quantity=10, eta=today
     )
@@ -89,7 +89,7 @@ def test_raises_out_of_stock_exception_if_cannot_allocate():
     assert allocation is None
 
 
-def test_increments_version_number():
+def test_increments_version_number() -> None:
     line = OrderLine(orderid="oref", sku="SCANDI-PEN", qty=10)
     product = Product(
         sku="SCANDI-PEN",

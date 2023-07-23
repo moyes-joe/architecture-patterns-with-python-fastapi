@@ -42,6 +42,14 @@ allocations = Table(
     Column("batch_id", ForeignKey("batches.id")),
 )
 
+allocations_view = Table(
+    "allocations_view",
+    mapper_registry.metadata,
+    Column("orderid", String(255)),
+    Column("sku", String(255)),
+    Column("batchref", String(255)),
+)
+
 
 def start_mappers() -> None:
     order_lines_mapper = mapper_registry.map_imperatively(model.OrderLine, order_lines)
@@ -66,5 +74,5 @@ def start_mappers() -> None:
 
 
 @event.listens_for(model.Product, "load")
-def receive_load(product, _):
+def receive_load(product, _) -> None:
     product.messages = []

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import traceback
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from datetime import date
 
 import pytest
@@ -15,26 +15,6 @@ from src.service_layer import unit_of_work
 from ..random_refs import random_batchref, random_orderid, random_sku
 
 
-@pytest.fixture
-def uow_factory(
-    session: Session,
-) -> Generator[Callable[[], unit_of_work.UnitOfWork], None, None]:
-    def get_uow() -> unit_of_work.UnitOfWork:
-        repo = repository.SqlAlchemyRepository(session)
-        tracking_repo = repository.TrackingRepository(repo)
-        sql_alchemy_uow = unit_of_work.SqlAlchemyUnitOfWork(
-            session=session, repo=tracking_repo
-        )
-        return unit_of_work.UnitOfWork(uow=sql_alchemy_uow)
-
-    yield get_uow
-
-
-@pytest.fixture
-def uow(uow_factory: Callable[[], unit_of_work.UnitOfWork]) -> unit_of_work.UnitOfWork:
-    return uow_factory()
-
-
 def insert_batch(
     session: Session,
     ref: str,
@@ -42,7 +22,7 @@ def insert_batch(
     qty: int,
     eta: date | None,
     product_version: int = 1,
-):
+) -> None:
     session.execute(
         text("INSERT INTO products (sku, version_number) VALUES (:sku, :version)"),
         dict(sku=sku, version=product_version),

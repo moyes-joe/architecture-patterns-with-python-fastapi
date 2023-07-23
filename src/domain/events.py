@@ -14,5 +14,21 @@ class Allocated(Event):
     batchref: str
 
 
+class Deallocated(Event):
+    orderid: str
+    sku: str
+    qty: int
+
+
+class AllocatedBatchRef(Event):
+    batchref: str
+
+
+class AllocationsViewed(Event):
+    orderid: str
+    sku: str
+    batchref: str
+
+
 class OutOfStock(Event):
     sku: str

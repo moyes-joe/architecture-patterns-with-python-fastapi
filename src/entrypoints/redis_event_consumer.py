@@ -26,10 +26,9 @@ def main():
         handle_change_batch_quantity(m)
 
 
-def handle_change_batch_quantity(m):
+def handle_change_batch_quantity(m: dict[str, str]):
     logging.debug("handling %s", m)
     cmd = commands.ChangeBatchQuantity.model_validate_json(m["data"])
-
     uow = get_unit_of_work()
     messagebus.handle(cmd, uow=uow)
 
