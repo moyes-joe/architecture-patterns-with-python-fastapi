@@ -27,3 +27,12 @@ e2e-tests: up
 
 logs:
 	docker-compose logs --tail=25 api redis_pubsub
+
+migrate:
+	docker-compose run --rm --no-deps --entrypoint=alembic api upgrade head
+
+db_shell:
+	docker-compose exec db psql --username=user --dbname=app_db
+
+redis_shell:
+	docker-compose exec redis redis-cli

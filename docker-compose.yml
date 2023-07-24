@@ -42,6 +42,8 @@ services:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=app_db
+    ports:
+      - 5433:5432
 
   redis:
     image: redis:alpine
