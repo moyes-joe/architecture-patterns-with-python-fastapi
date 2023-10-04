@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  redis_pubsub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: allocation-image
+    depends_on:
+      - db
+      - redis
+    environment:
+      - POSTGRES_URI=postgresql://user:password@db:5432/app_db
+      - REDIS_HOST=redis
+      - EMAIL_HOST=mailhog
+      - PYTHONDONTWRITEBYTECODE=1
+    volumes:
+      - ./:/usr/src/app
+
+    command: python -m src.entrypoints.redis_event_consumer
+
+  api:
+    build: .
+    command: uvicorn src.entrypoints.fastapi_app:app --reload --workers 4 --host 0.0.0.0 --port 8000
+    volumes:
+      - ./:/usr/src/app
+    ports:
+      - 8004:8000
+    environment:
+      - POSTGRES_URI=postgresql://user:password@db:5432/app_db
+      - REDIS_HOST=redis
+      - EMAIL_HOST=mailhog
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13.4
+    expose:
+      - 5432
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=app_db
+    ports:
+      - 5433:5432
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "63791:6379"
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "11025:1025"
+      - "18025:8025"
